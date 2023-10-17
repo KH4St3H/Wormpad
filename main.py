@@ -1,7 +1,7 @@
-import os
-
 import tkinter as tk
 from tkinter import filedialog as fd
+
+from pathlib import Path
 
 
 class TextEditor:
@@ -15,6 +15,8 @@ class TextEditor:
         """
         if not root:
             root = tk.Tk()
+
+        root.title('Wormpad')
 
         self.root = root
 
@@ -43,16 +45,19 @@ class TextEditor:
         """
         self.clear()
 
-        if not os.path.exists(filename):
+        path = Path(filename)
+        if not path.exists():
             raise FileNotFoundError(f'{filename} does not exist')
 
-        self.filename = filename
-        with open(filename, 'r') as f:
+        self.file = path
+        with open(path, 'r') as f:
             try:
                 for d, line in enumerate(f.readlines(), start=1):
                     self.text_widget.insert(f'{d}.0', line)
             except UnicodeDecodeError as e:
                 self.text_widget.insert('end', str(e))
+
+        self.root.title(path.name)
 
     def askopenfile(self) -> None:
         filename = fd.askopenfilename()
