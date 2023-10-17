@@ -1,11 +1,18 @@
+import os
+
 import tkinter as tk
 from tkinter import filedialog as fd
 
-from pathlib import Path
-
 
 class TextEditor:
-    def __init__(self, root=None, filename=None):
+    def __init__(self, root=None, filename: str=''):
+        """
+        Initializes text editor
+
+        Args:
+            root (tk.Tk): if text editor needs to be built on existing tk window
+            filename (str): opens file if specified
+        """
         if not root:
             root = tk.Tk()
 
@@ -13,6 +20,9 @@ class TextEditor:
 
         self.__create_entry()
         self.__create_menu()
+
+        if filename:
+            self.openfile(filename)
 
     def __create_entry(self) -> None:
         self.text_widget = tk.Text(self.root)
@@ -32,6 +42,11 @@ class TextEditor:
             filename (str): file name to be read
         """
         self.clear()
+
+        if not os.path.exists(filename):
+            raise FileNotFoundError(f'{filename} does not exist')
+
+        self.filename = filename
         with open(filename, 'r') as f:
             try:
                 for d, line in enumerate(f.readlines(), start=1):
