@@ -26,6 +26,10 @@ class TextEditor:
         if filename:
             self.openfile(filename)
 
+    @staticmethod
+    def create(event=None):
+        return TextEditor()
+
     def __create_entry(self) -> None:
         self.text_widget = tk.Text(self.root)
         self.text_widget.pack(fill='both', expand=True)
@@ -59,7 +63,7 @@ class TextEditor:
 
         self.root.title(path.name)
 
-    def askopenfile(self) -> None:
+    def askopenfile(self, event=None) -> None:
         filename = fd.askopenfilename()
         self.openfile(filename)
 
@@ -68,8 +72,13 @@ class TextEditor:
         self.root.config(menu=menubar)
 
         file_menu = tk.Menu(menubar, tearoff=False)
-        file_menu.add_command(label='New', command=TextEditor)
-        file_menu.add_command(label='Open...', command=self.askopenfile)
+
+        file_menu.add_command(label='New', command=TextEditor.create, accelerator='Control+n')
+        self.root.bind('<Control-n>', TextEditor.create)
+
+        file_menu.add_command(label='Open...', command=self.askopenfile, accelerator='Control+o')
+        self.root.bind('<Control-o>', self.askopenfile)
+
         file_menu.add_command(label='Close', command=self.root.destroy)
 
         menubar.add_cascade(label='File', menu=file_menu)
