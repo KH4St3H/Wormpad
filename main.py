@@ -19,9 +19,10 @@ class TextEditor:
         root.title('Wormpad')
 
         self.root = root
+        self.file= None
 
-        self.__create_entry()
-        self.__create_menu()
+        self._create_entry()
+        self._create_menu()
 
         if filename:
             self.openfile(filename)
@@ -30,7 +31,7 @@ class TextEditor:
     def create(event=None):
         return TextEditor()
 
-    def __create_entry(self) -> None:
+    def _create_entry(self) -> None:
         self.text_widget = tk.Text(self.root)
         self.text_widget.pack(fill='both', expand=True)
 
@@ -47,27 +48,58 @@ class TextEditor:
         Args:
             filename (str): file name to be read
         """
-        self.clear()
+        if not isinstance(filename, str):
+            return
 
         path = Path(filename)
-        if not path.exists():
-            raise FileNotFoundError(f'{filename} does not exist')
+        if path.is_dir():
+            return
 
+        self.clear()
         self.file = path
-        with open(path, 'r') as f:
+        self.root.title(path.name)
+
+        if not path.exists():
+            with path.open('w') as f:
+                pass
+            return
+
+        with path.open('r') as f:
             try:
                 for d, line in enumerate(f.readlines(), start=1):
                     self.text_widget.insert(f'{d}.0', line)
             except UnicodeDecodeError as e:
                 self.text_widget.insert('end', str(e))
 
-        self.root.title(path.name)
 
     def askopenfile(self, event=None) -> None:
         filename = fd.askopenfilename()
         self.openfile(filename)
 
-    def __create_menu(self) -> None:
+    def save_as(self, event=None):
+        filename = fd.asksaveasfilename()
+        path = Path(filename)
+        
+        if path.is_dir():
+            return
+
+        with path.open('w') as f:
+            f.writelines([i[1] for i in self.dump_all()])
+
+        self.openfile(filename)
+
+    def dump_all(self):
+        return self.text_widget.dump('1.0', 'end', text=True)
+
+    def save(self, event=None):
+        if not self.file:
+            self.save_as()
+            return
+
+        with open(self.file, 'w') as f:
+            f.writelines([i[1] for i in self.dump_all()])
+
+    def _create_menu(self) -> None:
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
 
@@ -80,6 +112,11 @@ class TextEditor:
         self.root.bind('<Control-o>', self.askopenfile)
 
         file_menu.add_command(label='Close', command=self.root.destroy)
+
+        file_menu.add_separator()
+        file_menu.add_command(label='Save', command=self.save, accelerator='Control+s')
+        self.root.bind('<Control-s>', self.save)
+        file_menu.add_command(label='Save as..', command=self.save_as)
 
         menubar.add_cascade(label='File', menu=file_menu)
 
