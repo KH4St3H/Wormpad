@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import filedialog as fd
-
 from pathlib import Path
 
 
@@ -32,8 +31,12 @@ class TextEditor:
         return TextEditor()
 
     def _create_entry(self) -> None:
-        self.text_widget = tk.Text(self.root)
+        scrollbar = tk.Scrollbar(self.root)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.text_widget = tk.Text(self.root, yscrollcommand=scrollbar.set)
         self.text_widget.pack(fill='both', expand=True)
+
+        scrollbar.config(command=self.text_widget.yview)
 
     def clear(self) -> None:
         """
@@ -99,10 +102,17 @@ class TextEditor:
         with open(self.file, 'w') as f:
             f.writelines([i[1] for i in self.dump_all()])
 
+    def undo(self, event=None):
+        pass
+
+    def redo(self, event=None):
+        pass
+
     def _create_menu(self) -> None:
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
 
+        # file menu
         file_menu = tk.Menu(menubar, tearoff=False)
 
         file_menu.add_command(label='New', command=TextEditor.create, accelerator='Control+n')
@@ -118,7 +128,19 @@ class TextEditor:
         self.root.bind('<Control-s>', self.save)
         file_menu.add_command(label='Save as..', command=self.save_as)
 
+        # edit menu
+        edit_menu = tk.Menu(menubar, tearoff=False)
+
+        edit_menu.add_command(label='Undo', command=self.undo, accelerator='Control-z')
+        self.root.bind('<Control-z>', self.undo)
+
+        edit_menu.add_command(label='Redo', command=self.redo, accelerator='Control-Shift-z')
+        self.root.bind('<Control-Shift-z>', self.redo)
+
+
+
         menubar.add_cascade(label='File', menu=file_menu)
+        menubar.add_cascade(label='Edit', menu=edit_menu)
 
     def run(self):
         self.root.mainloop()
