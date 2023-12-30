@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import filedialog as fd
 from pathlib import Path
 
+from undo import UndoBlock
+
 
 class TextEditor:
     def __init__(self, root=None, filename: str=''):
@@ -18,7 +20,11 @@ class TextEditor:
         root.title('Wormpad')
 
         self.root = root
-        self.file= None
+        self.file = None
+
+        self.saved = False
+
+        self.undo_block: UndoBlock = UndoBlock([('text', '', '')], 1, 2, prev=UndoBlock([('text', '', '')], 1, 2))
 
         self._create_entry()
         self._create_menu()
@@ -30,13 +36,61 @@ class TextEditor:
     def create(event=None):
         return TextEditor()
 
+    def _make_edit_event(self, event: tk.Event):
+        key = event.keycode
+        self.text_widget.index(tk.INSERT)
+
     def _create_entry(self) -> None:
         scrollbar = tk.Scrollbar(self.root)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.text_widget = tk.Text(self.root, yscrollcommand=scrollbar.set)
         self.text_widget.pack(fill='both', expand=True)
 
+        self.text_widget.bind('<KeyPress>', self.keypress)
+
         scrollbar.config(command=self.text_widget.yview)
+
+    def _make_undo_block(self, start_line):
+        print('***** new block **********')
+        content = self.text_widget.dump(f'{start_line}.0', f'{start_line}.end')
+        new_block = UndoBlock(content,
+                              start_line, start_line+1, prev=self.undo_block)
+        new_block.original_content = content
+        self.undo_block.link(new_block)
+        self.undo_block = new_block
+
+    def keypress(self, event):
+        index = self.text_widget.index(tk.INSERT)
+        row, col = index.split('.')
+        row, col = int(row), int(col)
+
+        if self.undo_block.next:
+            print('destroy')
+            self.undo_block.destroy_chain()
+            self._make_undo_block(row)
+
+        if self.saved:
+            self.saved = False
+            self._make_undo_block(row)
+
+        if row < self.undo_block.start_line:
+            self._make_undo_block(row)
+
+        if row > self.undo_block.end_line + 2:
+            self._make_undo_block(row)
+
+        if row > self.undo_block.end_line:
+            self.undo_block.end_line = row + 1
+
+        # if event.char == '\r':
+            # self.undo_block.end_line = 
+        
+        self.undo_block.content = self.text_widget.dump(f'{self.undo_block.start_line}.0', f'{self.undo_block.end_line}.0')
+        print('########')
+        print(self.undo_block.content)
+        print(self.undo_block.start_line)
+        print(self.undo_block.end_line)
+
 
     def clear(self) -> None:
         """
@@ -87,6 +141,7 @@ class TextEditor:
             return
 
         with path.open('w') as f:
+            self.saved = True
             f.writelines([i[1] for i in self.dump_all()])
 
         self.openfile(filename)
@@ -99,11 +154,20 @@ class TextEditor:
             self.save_as()
             return
 
+        if self.saved:  # no changes to save
+            return
+
         with open(self.file, 'w') as f:
             f.writelines([i[1] for i in self.dump_all()])
+            self.saved = True
 
     def undo(self, event=None):
-        pass
+        print(self.undo_block.content)
+        prev_block = self.undo_block
+        # self._make_undo_block(self.undo_block.start_line)
+        # prev_block.link(self.undo_block)
+        self.undo_block = prev_block
+        prev_block.apply(self.text_widget)
 
     def redo(self, event=None):
         pass
@@ -115,29 +179,27 @@ class TextEditor:
         # file menu
         file_menu = tk.Menu(menubar, tearoff=False)
 
-        file_menu.add_command(label='New', command=TextEditor.create, accelerator='Control+n')
+        file_menu.add_command(label='New', command=TextEditor.create, accelerator='Ctrl+n')
         self.root.bind('<Control-n>', TextEditor.create)
 
-        file_menu.add_command(label='Open...', command=self.askopenfile, accelerator='Control+o')
+        file_menu.add_command(label='Open...', command=self.askopenfile, accelerator='Ctrl+o')
         self.root.bind('<Control-o>', self.askopenfile)
 
         file_menu.add_command(label='Close', command=self.root.destroy)
 
         file_menu.add_separator()
-        file_menu.add_command(label='Save', command=self.save, accelerator='Control+s')
+        file_menu.add_command(label='Save', command=self.save, accelerator='Ctrl+s')
         self.root.bind('<Control-s>', self.save)
         file_menu.add_command(label='Save as..', command=self.save_as)
 
         # edit menu
         edit_menu = tk.Menu(menubar, tearoff=False)
 
-        edit_menu.add_command(label='Undo', command=self.undo, accelerator='Control-z')
+        edit_menu.add_command(label='Undo', command=self.undo, accelerator='Ctrl-z')
         self.root.bind('<Control-z>', self.undo)
 
-        edit_menu.add_command(label='Redo', command=self.redo, accelerator='Control-Shift-z')
+        edit_menu.add_command(label='Redo', command=self.redo, accelerator='Ctrl-Shift-z')
         self.root.bind('<Control-Shift-z>', self.redo)
-
-
 
         menubar.add_cascade(label='File', menu=file_menu)
         menubar.add_cascade(label='Edit', menu=edit_menu)
