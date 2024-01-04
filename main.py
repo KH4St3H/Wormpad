@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog as fd
 from pathlib import Path
+from typing import Optional
 
 from undo import UndoBlock
 
@@ -24,7 +25,7 @@ class TextEditor:
 
         self.saved = False
 
-        self.undo_block: UndoBlock = UndoBlock([('text', '', '')], 1, 2, prev=UndoBlock([('text', '', '')], 1, 2))
+        self.undo_block: UndoBlock = UndoBlock([('text', '', '1.0')], 1, 1)
 
         self._create_entry()
         self._create_menu()
@@ -35,10 +36,6 @@ class TextEditor:
     @staticmethod
     def create(event=None):
         return TextEditor()
-
-    def _make_edit_event(self, event: tk.Event):
-        key = event.keycode
-        self.text_widget.index(tk.INSERT)
 
     def _create_entry(self) -> None:
         scrollbar = tk.Scrollbar(self.root)
@@ -53,44 +50,52 @@ class TextEditor:
     def _make_undo_block(self, start_line):
         print('***** new block **********')
         content = self.text_widget.dump(f'{start_line}.0', f'{start_line}.end')
+        if not content:
+            content = [('text', '', f'{start_line}.0')]
         new_block = UndoBlock(content,
-                              start_line, start_line+1, prev=self.undo_block)
-        new_block.original_content = content
+                              start_line, start_line, prev=self.undo_block)
         self.undo_block.link(new_block)
         self.undo_block = new_block
 
     def keypress(self, event):
+        if not event.char:
+            return
+
+        if event.char in {'\x1a', '\x15'}:
+            return
+
         index = self.text_widget.index(tk.INSERT)
         row, col = index.split('.')
         row, col = int(row), int(col)
 
+        _created = False
+
         if self.undo_block.next:
-            print('destroy')
             self.undo_block.destroy_chain()
             self._make_undo_block(row)
+            _created = True
 
         if self.saved:
             self.saved = False
             self._make_undo_block(row)
+            _created = True
 
         if row < self.undo_block.start_line:
             self._make_undo_block(row)
+            _created = True
 
-        if row > self.undo_block.end_line + 2:
+        if row > self.undo_block.end_line+1:
             self._make_undo_block(row)
+            _created = True
 
+        # insert a new line
         if row > self.undo_block.end_line:
-            self.undo_block.end_line = row + 1
+            self.undo_block.end_line = row
+            self.undo_block.addline(self.text_widget)
 
-        # if event.char == '\r':
-            # self.undo_block.end_line = 
-        
-        self.undo_block.content = self.text_widget.dump(f'{self.undo_block.start_line}.0', f'{self.undo_block.end_line}.0')
-        print('########')
-        print(self.undo_block.content)
-        print(self.undo_block.start_line)
-        print(self.undo_block.end_line)
-
+        # add the only line
+        if not self.undo_block.content and not _created:
+            self.undo_block.addline(self.text_widget, row)
 
     def clear(self) -> None:
         """
@@ -162,15 +167,20 @@ class TextEditor:
             self.saved = True
 
     def undo(self, event=None):
-        print(self.undo_block.content)
+        self.undo_block.dumb_blocks()
         prev_block = self.undo_block
-        # self._make_undo_block(self.undo_block.start_line)
-        # prev_block.link(self.undo_block)
-        self.undo_block = prev_block
-        prev_block.apply(self.text_widget)
+        if prev_block.prev:
+            self.undo_block = prev_block.prev
+            prev_block.apply(self.text_widget)
 
     def redo(self, event=None):
-        pass
+        self.undo_block.dumb_blocks()
+
+        if not self.undo_block.next:
+            return
+        self.undo_block = self.undo_block.next
+        self.undo_block.apply(self.text_widget)
+
 
     def _create_menu(self) -> None:
         menubar = tk.Menu(self.root)
@@ -199,7 +209,7 @@ class TextEditor:
         self.root.bind('<Control-z>', self.undo)
 
         edit_menu.add_command(label='Redo', command=self.redo, accelerator='Ctrl-Shift-z')
-        self.root.bind('<Control-Shift-z>', self.redo)
+        self.root.bind('<Control-u>', self.redo)
 
         menubar.add_cascade(label='File', menu=file_menu)
         menubar.add_cascade(label='Edit', menu=edit_menu)

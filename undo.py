@@ -1,33 +1,47 @@
 from tkinter import Event
+from tkinter import Text
 from typing import Optional
-
-
-class Memento:
-    '''
-    Doubly linked list including changes
-    '''
-    def __init__(self, prev=None) -> None:
-        self.prev = None
-        self.next: Memento
 
 class UndoBlock:
     def __init__(self, content, start_line: int, end_line: int, next=None, prev=None) -> None:
-        self.next: Optional[UndoBlock] = next
-        self.prev: Optional[UndoBlock] = prev
+        self.next = next
+        self.prev = prev
         
         self.start_line = start_line
         self.end_line = end_line
 
         self.content = content
-        self.original_content = []
-        
-    def apply(self, widget):
-        widget.delete(f'{self.start_line}.0', f'{self.end_line}.0')
-        print(self.start_line, self.end_line)
+
+    def dumb_blocks(self):
+        head = self
+        while head.next:
+            head = head.next
+        count = 0
+        while head.prev:
+            if head is self:
+                print(f'[{count}*] -> ', end='')
+            else:
+                print(f'[{count}] -> ', end='')
+            count += 1
+            head = head.prev
+        print(f'[{count}]')
+
+    def addline(self, widget: Text, line=None):
+        line = line if line else self.end_line
+        self.content += widget.dump(f'{line}.0', f'{line}.end')
+
+    def apply(self, widget: Text):
+        old_data = [line
+                    for line in widget.dump(
+                        f'{self.start_line}.0', 
+                        f'{self.end_line}.end') if line[0]=='text']
+
+        widget.delete(f'{self.start_line}.0', f'{self.end_line}.end')
         for d, line in enumerate(self.content):
             if line[0] != 'text':
                 continue
-            widget.insert(f'{self.start_line + d}.0', line[1])
+            widget.insert(line[2], line[1])
+        self.content = old_data  # replace data with current text in undo area
 
     def link(self, next_block):
         self.next = next_block
@@ -35,6 +49,7 @@ class UndoBlock:
 
     def destroy_chain(self):
         last = self
+        self.dumb_blocks()
         while last.next:
             last = last.next
 
@@ -45,11 +60,3 @@ class UndoBlock:
             last.next = None
             del temp
 
-class UndoList:
-    def __init__(self) -> None:
-        self.current_memento = Memento()
-
-
-    def save_state(self, state):
-        new_memento = Memento(prev=self.current_memento)
-        self.current_memento.next = new_memento
