@@ -97,6 +97,12 @@ class TextEditor:
         if not self.undo_block.content and not _created:
             self.undo_block.addline(self.text_widget, row)
 
+    def lightTheme(self, event=None):
+        self.text_widget.config(bg="white", fg="black")
+
+    def darkTheme(self, event=None):
+        self.text_widget.config(bg="#1E1E1E", fg="white")
+
     def clear(self) -> None:
         """
         clears text_widget
@@ -210,6 +216,11 @@ class TextEditor:
 
         edit_menu.add_command(label='Redo', command=self.redo, accelerator='Ctrl-Shift-z')
         self.root.bind('<Control-u>', self.redo)
+
+        edit_menu.add_command(label="Light mode", command=self.lightTheme, accelerator='Ctrl-L')
+        self.root.bind('<Control-l>', self.lightTheme)
+        edit_menu.add_command(label="Dark mode", command=self.darkTheme, accelerator='Ctrl-D')
+        self.root.bind('<Control-d>', self.darkTheme)
 
         menubar.add_cascade(label='File', menu=file_menu)
         menubar.add_cascade(label='Edit', menu=edit_menu)
