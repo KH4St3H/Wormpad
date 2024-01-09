@@ -1,9 +1,12 @@
+import time
+
 from tkinter import Event
 from tkinter import Text
 from typing import Optional
 
 class UndoBlock:
     def __init__(self, content, start_line: int, end_line: int, next=None, prev=None) -> None:
+        self.edited_time = time.time()
         self.next = next
         self.prev = prev
         
@@ -11,6 +14,9 @@ class UndoBlock:
         self.end_line = end_line
 
         self.content = content
+
+    def update_time(self):
+        self.edited_time = time.time()
 
     def dumb_blocks(self):
         head = self

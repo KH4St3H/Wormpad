@@ -1,4 +1,6 @@
+import time
 import tkinter as tk
+
 from tkinter import filedialog as fd
 from pathlib import Path
 from typing import Optional
@@ -68,25 +70,28 @@ class TextEditor:
         row, col = index.split('.')
         row, col = int(row), int(col)
 
-        _created = False
+        _created = True
 
         if self.undo_block.next:
             self.undo_block.destroy_chain()
             self._make_undo_block(row)
-            _created = True
 
-        if self.saved:
+        elif self.saved:
             self.saved = False
             self._make_undo_block(row)
-            _created = True
 
-        if row < self.undo_block.start_line:
+        elif row < self.undo_block.start_line:
             self._make_undo_block(row)
-            _created = True
 
-        if row > self.undo_block.end_line+1:
+        elif row > self.undo_block.end_line+1:
             self._make_undo_block(row)
-            _created = True
+
+        elif time.time() - self.undo_block.edited_time > 2.5:
+            self._make_undo_block(row)
+        
+        else:
+            _created = False
+            self.undo_block.update_time()
 
         # insert a new line
         if row > self.undo_block.end_line:
